@@ -56,6 +56,9 @@ def Transformer_New_Task_Schema_To_Old_Task_Schema(task) -> Any:
             _bboxes.append(box)
     trackedCarInfo['bboxes'] = _bboxes
 
+    sourcePath: str = os.path.join(CONF['path'], CONF['main_foldername'], CONF['video_and_images_save_foldername'])
+    os.makedirs(name=sourcePath, exist_ok=True)
+
     return {
         "obj_id": lostCarID,
         "frame_id": laFQueue,
@@ -65,7 +68,7 @@ def Transformer_New_Task_Schema_To_Old_Task_Schema(task) -> Any:
         "detected_violations": {
             lostCarID: carViolations
         },
-        "violation_video_path": os.path.join(CONF['path'], CONF['video_save_foldername']),
+        "violation_video_path": sourcePath,
         "farthest_line": [
             [p1.x, p1.y],
             [p2.x, p2.y]
@@ -90,11 +93,11 @@ def Wait_Untill_Frame_Is_Exists(camera: str, toFrameID: int) -> None:
         pass
 
 
-def Create_Video_And_Image_Path(camera: str, lostCarID: int, vtype: str) -> tuple[str, str]:
+def Create_Car_Video_And_Image_Paths(camera: str, lostCarID: int, vtype: str) -> tuple[str, str]:
     current_time: str = time.strftime("%Y.%m.%d-%H.%M.%S")
     violationID: int = VIOLATION_TYPE_TO_ID[vtype]
 
-    mainPath: str = os.path.join(CONF['path'], CONF['video_save_foldername'])
+    mainPath: str = os.path.join(CONF['path'], CONF['main_foldername'], CONF['video_and_images_save_foldername'])
     os.makedirs(mainPath, exist_ok=True)
 
     videoFilename: str = f"{current_time}__carID:{lostCarID}_RuleID:{violationID}__{camera}_video.mp4"
@@ -110,6 +113,22 @@ def Create_Video_And_Image_Path(camera: str, lostCarID: int, vtype: str) -> tupl
     plateImageOutputFilePath: str = os.path.join(mainPath, plateImageFilename)
 
     return videoOutputFilePath, fullImageOutputFilePath, carImageOutputFilePath, plateImageOutputFilePath
+
+
+def Create_Car_Image_Path(camera: str, lostCarID: int, vtype: str = "no_violation") -> tuple[str, str]:
+    current_time: str = time.strftime("%Y.%m.%d-%H.%M.%S")
+    violationID: int = VIOLATION_TYPE_TO_ID[vtype]
+
+    mainPath: str = os.path.join(CONF['path'], CONF['main_foldername'], CONF['only_image_save_foldername'])
+    os.makedirs(mainPath, exist_ok=True)
+
+    fullImageFilename: str = f"{current_time}__carID:{lostCarID}_RuleID:{violationID}__{camera}_full.jpeg"
+    fullImageOutputFilePath: str = os.path.join(mainPath, fullImageFilename)
+
+    carImageFilename: str = f"{current_time}__carID:{lostCarID}_RuleID:{violationID}__{camera}_car.jpeg"
+    carImageOutputFilePath: str = os.path.join(mainPath, carImageFilename)
+
+    return fullImageOutputFilePath, carImageOutputFilePath
 
 
 def Create_Image(inputdata: NdArray, outputFilename: str) -> None:
@@ -194,7 +213,7 @@ def Create_Video(task: tuple[str, int, dict, set]) -> None:
             detectedFrameID = violationFrameID
             break
 
-    videoOutputFilePath, fullImageOutputFilePath, carImageOutputFilePath, plateImageOutputFilePath = Create_Video_And_Image_Path(
+    videoOutputFilePath, fullImageOutputFilePath, carImageOutputFilePath, plateImageOutputFilePath = Create_Car_Video_And_Image_Paths(
         camera=camera,
         lostCarID=lostCarID,
         vtype=vtype)
@@ -296,7 +315,7 @@ def Create_Video2(task: tuple[str, int, dict, set]) -> None:
 
     rangeFrames: range = Create_Range_Of_Frames(detectedFrameID=detectedFrameID)
 
-    videoOutputFilePath, fullImageOutputFilePath, carImageOutputFilePath, plateImageOutputFilePath = Create_Video_And_Image_Path(
+    videoOutputFilePath, fullImageOutputFilePath, carImageOutputFilePath, plateImageOutputFilePath = Create_Car_Video_And_Image_Paths(
         camera=camera,
         lostCarID=lostCarID,
         vtype=vtype)

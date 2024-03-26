@@ -45,12 +45,14 @@ class Settings(metaclass=SettingsBase):
 
             # Getting Foldernames Path To Save Images, Videos and Config Files
             "foldername": config.get('Saving', 'laf_image_foldername').strip(),
-            "video_save_foldername": config.get('Saving', 'video_save_foldername').strip(),
+            "main_foldername": config.get('Saving', "main_foldername").strip(),
+            "video_and_images_save_foldername": config.get('Saving', "video_and_images_save_foldername").strip(),
+            "only_image_save_foldername": config.get('Saving', "only_image_save_foldername").strip(),
             "config_lines_foldername": config.get('Saving', 'config_lines_foldername').strip(),
 
             # Getting Saving Files Formats
             "line_config_file_format": config.get('Format', 'line_config_file_format').strip(),
-            
+
             # Getting Acceptings
             "load_exists_config_file": config.get('Accept', 'load_exists_config_file').strip(),
 

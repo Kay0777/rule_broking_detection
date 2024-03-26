@@ -22,16 +22,14 @@ from analysis import (
     Classification_Tensors,
     Transform_Traffic_Light_Image,
 )
-from violation import ViolationDetector
-from video_creator import Create_Video, Transformer_New_Task_Schema_To_Old_Task_Schema
-# from save import save_violation_video_if_needed
-
-import time
+from kai.violation import ViolationDetector
+from video_creator import Create_Video
+from time import sleep as TimeSleep
 
 
 def Video_Creator(tasks: Queue) -> None:
     while True:
-        time.sleep(1)
+        TimeSleep(1)
         if tasks.empty():
             continue
 
@@ -40,18 +38,7 @@ def Video_Creator(tasks: Queue) -> None:
             # Terminate Video Creator Task
             break
 
-        oldTask: dict = Transformer_New_Task_Schema_To_Old_Task_Schema(task=newTask)
-        # Create_Video(task=newTask)
-        # save_violation_video_if_needed(
-        #     obj_id=oldTask['obj_id'],
-        #     frame_id=oldTask['frame_id'],
-        #     ip_address=oldTask['ip_address'],
-        #     tracker=oldTask['tracker'],
-        #     has_violation=oldTask['has_violation'],
-        #     detected_violations=oldTask['detected_violations'],
-        #     violation_video_path=oldTask['violation_video_path'],
-        #     farthest_line=oldTask['farthest_line'],
-        # )
+        Create_Video(task=newTask)
         tasks.task_done()
     print('# ________________________________________________________ #')
     print('#       V I D E O   C R E A T O R   I S   C L O S E D      #')
@@ -340,7 +327,7 @@ def main():
         tasks: Queue = manager.Queue()  # type: ignore
         with ProcessPoolExecutor(max_workers=2) as connectionPool, \
                 ThreadPoolExecutor(max_workers=12) as analyzingPool, \
-        ProcessPoolExecutor(max_workers=2) as videoCreatorPool:
+            ProcessPoolExecutor(max_workers=2) as videoCreatorPool:
 
             connectionFutures = []
             analysisFutures = []

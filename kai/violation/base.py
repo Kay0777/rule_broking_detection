@@ -1,9 +1,5 @@
-from os import path as OsPath, mkdir
-
-from typing import Any
-from config import CONF
-
 from kai.const import RULES
+from typing import Any
 
 
 class ViolationDetectorMetaClass(type):
@@ -17,12 +13,6 @@ class ViolationDetectorBase:
     def __init__(self, name: str, configs: dict) -> None:
         self.name: str = name
         self.lines_configs: dict = configs
-
-        self.video_save_foldername: str = OsPath.join(
-            CONF['path'],
-            CONF['video_save_foldername'])
-        if not OsPath.exists(path=self.video_save_foldername):
-            mkdir(path=self.video_save_foldername)
 
     def create_violations(self) -> dict[str, set]:
         violations: dict[str, set] = {

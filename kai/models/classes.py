@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from config import CONF
 
 __all__ = (
     "Point",
@@ -80,11 +81,11 @@ class ModelType(Enum):
     ALL = ModelCoreType(
         name='All Objects',
         # model_type=CONF['all_objects'],
-        model_type='./best_openvino_model_single/best.xml')
+        model_type=CONF['all_objects'])
     TRAFFIC_LIGHT = ModelCoreType(
         name='Traffic Light',
         # model_type=CONF['traffic_light'],
-        model_type='./tl_m/tl-model.xml')
+        model_type=CONF['traffic_light'])
 
     def __str__(self) -> str:
         return f'Model: {self.value}'

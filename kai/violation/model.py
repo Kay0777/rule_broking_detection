@@ -3,7 +3,6 @@ from .base import (
     ViolationDetectorMetaClass
 )
 
-from concurrent.futures import ThreadPoolExecutor as ThPool, wait
 from typing import Union
 
 from kai.models.base import CarID
@@ -60,18 +59,8 @@ class ViolationDetector(ViolationDetectorBase, metaclass=ViolationDetectorMetaCl
 
     # Done
     def Update_Trackers(self, laFQueue: int, cars: set[CarID]) -> list[tuple]:
-        with ThPool(max_workers=4) as pool:
-            futures = [
-                pool.submit(
-                    self.__updating_cars,
-                    laFQueue,
-                    car
-                ) for car in cars
-            ]
-            # Wait till tasks is done!
-            wait(futures)
-        # for car in cars:
-        #     self.__updating_cars(laFQueue=laFQueue, car=car)
+        for car in cars:
+            self.__updating_cars(laFQueue=laFQueue, car=car)
 
         # Updating Tracked Cars Missing Frames Count
         currentCars: set[int] = set({car.id for car in cars})
