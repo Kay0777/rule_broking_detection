@@ -1,0 +1,20 @@
+description: Ultralytics YOLOv8s-cls model trained on C:\Users\U0011\Desktop\Recognition\Data\tl
+author: Ultralytics
+license: AGPL-3.0 https://ultralytics.com/license
+date: '2023-12-12T17:15:18.440207'
+version: 8.0.207
+stride: 1
+task: classify
+batch: 1
+imgsz:
+- 224
+- 224
+names:
+  0: Green
+  1: None
+  2: Red
+  3: RedGreen
+  4: RedYellow
+  5: RedYellowGreen
+  6: Yellow
+  7: YellowGreen
