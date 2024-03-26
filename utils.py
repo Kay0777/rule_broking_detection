@@ -1,6 +1,8 @@
 from argparse import ArgumentParser
 from configparser import ConfigParser
 from time import monotonic
+import platform
+import subprocess
 
 
 def cameraIPs() -> list[tuple[str, str, str]]:
@@ -22,6 +24,21 @@ def cameraIPs() -> list[tuple[str, str, str]]:
     ips = [ip.strip() for ip in config.get('Settings', 'ips').split(',')]
 
     return [(ip, username, password) for ip in ips]
+
+
+def ping(host: str) -> bool:
+    """
+    Returns True if host (str) responds to a ping request.
+    Remember that a host may not respond to a ping (ICMP) request even if the host name is valid.
+    """
+
+    # Option for the number of packets as a function of
+    param = '-n' if platform.system().lower() == 'windows' else '-c'
+
+    # Building the command. Ex: "ping -c 1 google.com"
+    command = ['ping', param, '1', host]
+
+    return subprocess.call(command) == 0
 
 
 def timeIt(camera: str, title: str, startTime: float) -> None:

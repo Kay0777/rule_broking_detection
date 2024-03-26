@@ -21,6 +21,7 @@ from kai.const import (
 )
 
 
+# Done Optimized
 def Handle_Exception(future) -> None:
     exception: Exception = future.exception()
     if exception:
