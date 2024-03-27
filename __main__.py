@@ -3,7 +3,7 @@ from multiprocessing.managers import Namespace, ListProxy
 from multiprocessing import Manager
 from queue import Queue
 
-from utils import timeIt
+from utils import printt, timeIt
 from PIL import Image
 import numpy as np
 import time
@@ -15,7 +15,6 @@ from kai.camera import Camera
 from kai.line import Line
 from analysis import (
     Handle_Exception,
-
     Laf_HWC_To_CHW,
     CHW_Laf_To_TenSor,
     Traffic_Light_Color,
@@ -111,7 +110,7 @@ def Analyze_Laf_Data(
     print(f'Start analyze the camera: {camera} active frame!')
     print('#_________________________________________________________#')
 
-    print('* _________________________________________________________ *')
+    printt('* _________________________________________________________ *')
     tracker: Tracker = getattr(trackers, f'{camera}')
     linesConfigs: dict = getattr(configs, f'{camera}')
 
@@ -128,7 +127,7 @@ def Analyze_Laf_Data(
             # The active frame will be analyzed and after analysis, the unblocked camera's last active frame status
             continue
 
-        print('* _________________________________________________________ *')
+        printt('* _________________________________________________________ *')
         # ______________________________________________________________________________
         start = time.monotonic()
         # LAF is Last Active Frame
@@ -245,7 +244,7 @@ def Analyze_Laf_Data(
             timeIt(camera=str(camera), title='Checking Violations Time', startTime=start)
             # _________________________________________________
             # ______________________________________________________________________________
-        print('* _________________________________________________________ *')
+        printt('* _________________________________________________________ *')
 
         # Update Camera Blocking Status For unLock To Update Shared Memory Data
         camera.unblock()
@@ -331,46 +330,26 @@ def main():
 
             connectionFutures = []
             analysisFutures = []
-
-            for camera in camera:
-                # Create Connection Task
+            videoCreatorFutures = []
+            
+            for camera in cameras:
+                # Submit "Connection To Camera" tasks in The Connection Pool
                 connectionTask = connectionPool.submit(
                     Connect_To_Camera, camera)
                 connectionTask.add_done_callback(fn=Handle_Exception)
                 connectionFutures.append(connectionTask)
 
-                # Create Analyze Task
+                # Submit "Analysis Laf Data" tasks in The Analysis Pool
                 analysisTask = analyzingPool.submit(
                     Analyze_Laf_Data, camera, tasks, trackers, configs, allObjectsModel, trafficLightModel)
                 analysisTask.add_done_callback(fn=Handle_Exception)
                 analysisFutures.append(analysisTask)
-
-            # # Submit "Connection To Camera" tasks in The Connection Pool
-            # connectionFutures = [
-            #     connectionPool.submit(
-            #         Connect_To_Camera,
-            #         camera
-            #     ) for camera in cameras]
-
-            # # Submit "Analysis Laf Data" tasks in The Analysis Pool
-            # analysisFutures = [
-            #     analyzingPool.submit(
-            #         Analyze_Laf_Data,
-            #         camera,
-            #         tasks,
-            #         trackers,
-            #         configs,
-            #         allObjectsModel,
-            #         trafficLightModel,
-            #     ) for camera in cameras]
-
+            
             # Submit "Video Creator" tasks in The Video Creator Pool
-            videoCreatorFutures = [
-                # videoCreatorPool.submit(
-                #     Video_Creator,
-                #     tasks
-                # )
-            ]
+            videoCreatorFuture = videoCreatorPool.submit(
+                Video_Creator, tasks)
+            videoCreatorFuture.add_done_callback(fn=Handle_Exception)
+            videoCreatorFutures.append(videoCreatorFuture)
 
             # Wait for all futures to complete.
             wait(connectionFutures + analysisFutures + videoCreatorFutures)

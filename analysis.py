@@ -1,8 +1,10 @@
 
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 from torch import from_numpy as TorchFromNP, tensor, Tensor
+from concurrent.futures import Future
 from ultralytics.utils import ops
 import torch.nn.functional as F
+
 
 from PIL import Image
 import numpy as np
@@ -22,7 +24,7 @@ from kai.const import (
 
 
 # Done Optimized
-def Handle_Exception(future) -> None:
+def Handle_Exception(future: Future) -> None:
     exception: Exception = future.exception()
     if exception:
         print('# $ ______________________________________________________ $ #')

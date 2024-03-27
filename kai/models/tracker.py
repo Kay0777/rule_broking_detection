@@ -118,7 +118,7 @@ class Tracker(TrackerBase, metaclass=TrackerMetaClass):
             unusedCols = set(range(0, D.shape[1])).difference(usedCols)
             for col in unusedCols:
                 newCarCoor = detectedCoorsOfCars[col]
-                newCarVpnCoor = self.__detect_plate(carCoor=carNewCoor, plates=detectedCoorsOfCarPlates)
+                newCarVpnCoor = self.__detect_plate(carCoor=newCarCoor, plates=detectedCoorsOfCarPlates)
 
                 self.__register(
                     carCoors=newCarCoor,

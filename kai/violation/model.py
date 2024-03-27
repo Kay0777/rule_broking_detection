@@ -65,6 +65,7 @@ class ViolationDetector(ViolationDetectorBase, metaclass=ViolationDetectorMetaCl
         # Updating Tracked Cars Missing Frames Count
         currentCars: set[int] = set({car.id for car in cars})
         previousCars: set[int] = set(self.trackedCars.keys())
+
         diffCars: set[int] = previousCars ^ currentCars
         for diffCar in diffCars:
             self.trackedCars[diffCar]['missing_frames'] += 1
@@ -73,22 +74,27 @@ class ViolationDetector(ViolationDetectorBase, metaclass=ViolationDetectorMetaCl
         lostCarIDs: set[int] = {
             carID for carID, metaData in self.trackedCars.items()
             if metaData['missing_frames'] > COUNT_OF_MISSING_FRAMES}
-
+        
         tasks: list[tuple[str, int, dict, set]] = []
         for lostCarID in lostCarIDs:
             hasTheCarBrokenAnyRules = any(lostCarID in self.violations[violation] for violation in self.violations)
             isTheCarPlateDetecedAnyTime = any(self.trackedCars[lostCarID]['pbboxes'])
-            if hasTheCarBrokenAnyRules and isTheCarPlateDetecedAnyTime:
-                # Need Initialize Task
-                tasks.append((
-                    self.name,
-                    lostCarID,
-                    self.trackedCars[lostCarID],
-                    self.detectViolations[lostCarID]))
+
+            # Need Initialize Task
+            tasks.append((
+                self.name,
+                lostCarID,
+                self.stopLine,
+                hasTheCarBrokenAnyRules,
+                isTheCarPlateDetecedAnyTime,
+                self.trackedCars[lostCarID],
+                self.detectViolations.get(lostCarID, set({'no_violation'}))))
 
             # Removing Car From Tracking Violation
             del self.trackedCars[lostCarID]
-            del self.detectViolations[lostCarID]
+
+            if lostCarID in self.detectViolations:
+                del self.detectViolations[lostCarID]
 
             # Removing Car From Direction Violation
             if lostCarID in self.trackedCarDirects:
@@ -143,17 +149,14 @@ class ViolationDetector(ViolationDetectorBase, metaclass=ViolationDetectorMetaCl
         if car.id not in self.trackedCarsStatuses:
             self.trackedCarsStatuses[car.id] = []
 
-        stopLine: tuple[Point, Point] = self.lines_configs['stop_line'][0]
-        redLine: tuple[Point, Point] = self.lines_configs['red_line'][0]
-
         trackedCarStatus: list[tuple[str, str]] = self.trackedCarsStatuses.get(car.id)
         statuses: set[str] = set(status[0] for status in trackedCarStatus)
 
-        if 'stop' not in statuses and self.__is_line_between_bboxes(car=car, line=stopLine):
+        if 'stop' not in statuses and self.__is_line_between_bboxes(car=car, line=self.stopLine):
             trackedCarStatus.append(('stop', tlColor))
             self.stopLineCrossingFrames[car.id] = laFQueue
 
-        if 'red' not in statuses and self.__is_line_between_bboxes(car=car, line=redLine):
+        if 'red' not in statuses and self.__is_line_between_bboxes(car=car, line=self.redLine):
             trackedCarStatus.append(('red', tlColor))
 
         # Check for 'red_light' violation (exact sequence: [('stop', 'Red'), ('red', 'Red')])
@@ -228,6 +231,14 @@ class ViolationDetector(ViolationDetectorBase, metaclass=ViolationDetectorMetaCl
     @property
     def farthest_1_1_Line(self) -> list[Point, Point]:
         return self.lines_configs['1.1_line'][0]
+
+    @property
+    def stopLine(self) -> tuple[Point, Point]:
+        return self.lines_configs['stop_line'][0]
+
+    @property
+    def redLine(self) -> tuple[Point, Point]:
+        return self.lines_configs['red_line'][0]
 
     # Done
     def __is_line_between_bboxes(self, car: CarID, line: tuple[Point, Point]) -> bool:

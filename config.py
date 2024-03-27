@@ -51,14 +51,16 @@ class Settings(metaclass=SettingsBase):
             "config_lines_foldername": config.get('Saving', 'config_lines_foldername').strip(),
 
             # Getting Saving Files Formats
-            "line_config_file_format": config.get('Format', 'line_config_file_format').strip(),
+            "line_config_file_format": config.get('Format', 'line_config_file_format').split('#')[0].strip(),
 
             # Getting Acceptings
-            "load_exists_config_file": config.get('Accept', 'load_exists_config_file').strip(),
+            "load_exists_config_file": config.get('Accept', 'load_exists_config_file').split('#')[0].strip(),
+            "analysis_print": config.get('Accept', 'analysis_print').split('#')[0].strip(),
+            "analysis_logging": config.get('Accept', 'analysis_logging').split('#')[0].strip(),
 
             # Getting Using Model Settings
-            "all_objects": config.get('Models', 'all_objects_model_path').strip(),
-            "traffic_light": config.get('Models', "traffic_light_model_path").strip(),
+            "all_objects": config.get('Models', 'all_objects_model_path').split('#')[0].strip(),
+            "traffic_light": config.get('Models', "traffic_light_model_path").split('#')[0].strip(),
         }
 
     def __str__(self) -> str:

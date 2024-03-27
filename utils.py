@@ -4,6 +4,8 @@ from time import monotonic
 import platform
 import subprocess
 
+from config import CONF
+
 
 def cameraIPs() -> list[tuple[str, str, str]]:
     parser = ArgumentParser(
@@ -40,9 +42,14 @@ def ping(host: str) -> bool:
 
     return subprocess.call(command) == 0
 
+def printt(message: str) -> None:
+    if CONF['analysis_print'] == 'y':
+        print(message)
 
 def timeIt(camera: str, title: str, startTime: float) -> None:
-    print('Camera: {} || {}: {:.3f} ms'.format(camera, title, 1000 * (monotonic() - startTime)))
+    if CONF['analysis_print'] == 'y':
+        print('Camera: {} || {}: {:.3f} ms'.format(camera, title, 1000 * (monotonic() - startTime)))
+    
 
 
 if __name__ == '__main__':

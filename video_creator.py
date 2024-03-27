@@ -93,11 +93,15 @@ def Wait_Untill_Frame_Is_Exists(camera: str, toFrameID: int) -> None:
         pass
 
 
-def Create_Car_Video_And_Image_Paths(camera: str, lostCarID: int, vtype: str) -> tuple[str, str]:
+def Create_Car_Video_And_Image_Paths(camera: str, lostCarID: int, vtype: str = "no_violation") -> tuple[str, str]:
     current_time: str = time.strftime("%Y.%m.%d-%H.%M.%S")
     violationID: int = VIOLATION_TYPE_TO_ID[vtype]
 
-    mainPath: str = os.path.join(CONF['path'], CONF['main_foldername'], CONF['video_and_images_save_foldername'])
+    mainPath: str = os.path.join(CONF['path'], CONF['main_foldername'])
+    if vtype == "no_violation":
+        mainPath = os.path.join(mainPath, CONF['only_image_save_foldername'])
+    else:
+        mainPath = os.path.join(mainPath, CONF['video_and_images_save_foldername'])
     os.makedirs(mainPath, exist_ok=True)
 
     videoFilename: str = f"{current_time}__carID:{lostCarID}_RuleID:{violationID}__{camera}_video.mp4"
@@ -115,27 +119,15 @@ def Create_Car_Video_And_Image_Paths(camera: str, lostCarID: int, vtype: str) ->
     return videoOutputFilePath, fullImageOutputFilePath, carImageOutputFilePath, plateImageOutputFilePath
 
 
-def Create_Car_Image_Path(camera: str, lostCarID: int, vtype: str = "no_violation") -> tuple[str, str]:
-    current_time: str = time.strftime("%Y.%m.%d-%H.%M.%S")
-    violationID: int = VIOLATION_TYPE_TO_ID[vtype]
-
-    mainPath: str = os.path.join(CONF['path'], CONF['main_foldername'], CONF['only_image_save_foldername'])
-    os.makedirs(mainPath, exist_ok=True)
-
-    fullImageFilename: str = f"{current_time}__carID:{lostCarID}_RuleID:{violationID}__{camera}_full.jpeg"
-    fullImageOutputFilePath: str = os.path.join(mainPath, fullImageFilename)
-
-    carImageFilename: str = f"{current_time}__carID:{lostCarID}_RuleID:{violationID}__{camera}_car.jpeg"
-    carImageOutputFilePath: str = os.path.join(mainPath, carImageFilename)
-
-    return fullImageOutputFilePath, carImageOutputFilePath
-
-
 def Create_Image(inputdata: NdArray, outputFilename: str) -> None:
     engine: TurboJPEG = TurboJPEG()
     with open(file=outputFilename, mode='wb') as file:
         file.write(engine.encode(img_array=inputdata, quality=100))
         file.close()
+
+
+def Create_Frame_Data_Full_Path(camera: str, frameID: int) -> str:
+    return os.path.join(CONF['path'], CONF['foldername'], camera, f'{frameID}.npy')
 
 
 def Scale_Coordinate(coor: tuple[Point, Point], originalShape: tuple[int, int, int]) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -146,6 +138,22 @@ def Scale_Coordinate(coor: tuple[Point, Point], originalShape: tuple[int, int, i
     return (
         (int(p1.x * Dx), int(p1.y * Dy)),
         (int(p2.x * Dx), int(p2.y * Dy))
+    )
+
+
+def Move_Point_As_Vector(fromCoor1: tuple[Point, Point], fromCoor2: tuple[Point, Point], toCoor: tuple[Point, Point]) -> tuple[Point, Point]:  # return toNewCoor
+    p1, _ = fromCoor1
+    p2, _ = fromCoor2
+
+    Dx = p2.x - p1.x
+    Dy = p2.y - p1.y
+
+    Dx = int(NpCeil(Dx)) if Dx > 0 else int(NpFloor(Dx))
+    Dy = int(NpCeil(Dy)) if Dy > 0 else int(NpFloor(Dy))
+
+    return (
+        toCoor[0] + Point(x=Dx, y=Dy),
+        toCoor[1] + Point(x=Dx, y=Dy),
     )
 
 
@@ -165,36 +173,87 @@ def Delta_Coordinate_Car_Plate(coor: Union[None, tuple[Point, Point]], index: in
                 detectPlateIndex = index + i
                 break
 
-    carCoor1: tuple[Point, Point] = carCoors[detectPlateIndex]
-    carCoor2: tuple[Point, Point] = carCoors[index]
-
-    p1, _ = carCoor1
-    p2, _ = carCoor2
-
-    Dx = p2.x - p1.x
-    Dy = p2.y - p1.y
-
-    Dx = int(NpCeil(Dx)) if Dx > 0 else int(NpFloor(Dx))
-    Dy = int(NpCeil(Dy)) if Dy > 0 else int(NpFloor(Dy))
-
-    plateCoor: tuple[Point, Point] = plateCoors[detectPlateIndex]
-    return (
-        plateCoor[0] + Point(x=Dx, y=Dy),
-        plateCoor[1] + Point(x=Dx, y=Dy),
+    return Move_Point_As_Vector(
+        fromCoor1=carCoors[detectPlateIndex],
+        fromCoor2=carCoors[index],
+        toCoor=plateCoors[detectPlateIndex]
     )
 
 
 def Create_Video(task: tuple[str, int, dict, set]) -> None:
-    camera, lostCarID, hasTheCarBrokenAnyRules, isTheCarPlateDetecedAnyTime, trackedCarInfo, carViolations = task
+    camera, lostCarID, stopLine, hasTheCarBrokenAnyRules, isTheCarPlateDetecedAnyTime, trackedCarInfo, carViolations = task
 
     if not hasTheCarBrokenAnyRules:
+        _, fullImageOutputFilePath, carImageOutputFilePath, plateImageOutputFilePath = Create_Car_Video_And_Image_Paths(
+            camera=camera, lostCarID=lostCarID)
+
         # If not detected broked rules we need save only car image
+        p1, p2 = stopLine
+        maxYPoint = p2.y if p2.y > p1.y else p1.y
+
+        which = 0
+        for i, coor in enumerate(trackedCarInfo['bboxes']):
+            p1, p2 = coor
+
+            midYPoint = (p1.y + p2.y) / 2
+            if midYPoint < maxYPoint:
+                which = i
+                break
+
+        frameID: int = trackedCarInfo['frame_indices'][which]
+        data: NdArray = LoadNpy(file=Create_Frame_Data_Full_Path(camera=camera, frameID=frameID))
+        # image = cv2.resize(src=data, dsize=VIDEO_SHAPE)
+        # # Create a Full Image
+        # Create_Image(inputdata=image, outputFilename=fullImageOutputFilePath)
+
+        # Create Car Image
+        p1, p2 = trackedCarInfo['bboxes'][which]
+
+        fromY = p1.y if p1.y < p2.y else p2.y
+        toY = p1.y if p1.y > p2.y else p2.y
+        fromX = p1.x if p1.x < p2.x else p2.x
+        toX = p1.x if p1.x > p2.x else p2.x
+
+        carImg = data[fromY:toY, fromX:toX, :]
+        Create_Image(inputdata=carImg, outputFilename=carImageOutputFilePath)
+
+        return
+        if not isTheCarPlateDetecedAnyTime:
+            # If the car plate not detected any time
+            # The car video will not create
+            return
+
+        index = 0
+        if not trackedCarInfo['pbboxes'][which]:
+            for i, coor in enumerate(trackedCarInfo['pbboxes']):
+                if coor:
+                    index = i
+                    break
+            p1, p2 = Move_Point_As_Vector(
+                fromCoor1=trackedCarInfo['bboxes'][which],
+                fromCoor2=trackedCarInfo['bboxes'][index],
+                toCoor=trackedCarInfo['pbboxes'][index])
+        else:
+            p1, p2 = trackedCarInfo['pbboxes'][which]
+
+        fromY = p1.y if p1.y < p2.y else p2.y
+        toY = p1.y if p1.y > p2.y else p2.y
+        fromX = p1.x if p1.x < p2.x else p2.x
+        toX = p1.x if p1.x > p2.x else p2.x
+
+        plateImg = data[fromY:toY, fromX:toX, :]
+        Create_Image(inputdata=plateImg, outputFilename=plateImageOutputFilePath)
+
+        del data
+        del carImg, plateImg
+        del fromY, fromX, toY, ToX
         return
 
     if not isTheCarPlateDetecedAnyTime:
         # If the car plate not detected any time
         # The car video will not create
         return
+    return
 
     if 'incorrect_direction' in carViolations:
         vtype = 'incorrect_direction'
@@ -229,10 +288,9 @@ def Create_Video(task: tuple[str, int, dict, set]) -> None:
         fps=FPS,
         frameSize=VIDEO_SHAPE)
 
+    # Ket bolgan togirlash kere
     for frameID in rangeFrames:
-        frameFilename = os.path.join(CONF['path'], CONF['foldername'], camera, f'{frameID}.npy')
-
-        data: NdArray = LoadNpy(file=frameFilename)
+        data: NdArray = LoadNpy(file=Create_Frame_Data_Full_Path(camera=camera, frameID=frameID))
         _data: NpArray = copy(data)
         image = cv2.resize(src=data, dsize=VIDEO_SHAPE)
 
@@ -240,11 +298,19 @@ def Create_Video(task: tuple[str, int, dict, set]) -> None:
         if detectedFrameID != frameID:
             continue
 
+        # Create a Full Image
+        Create_Image(inputdata=image, outputFilename=fullImageOutputFilePath)
+
         # saving car image
         frameIndices: list[int] = trackedCarInfo['frame_indices']
         index: int = frameIndices.index(detectedFrameID)
-
         carCoor: tuple[Point, Point] = trackedCarInfo['bboxes'][index]
+
+        # Create Full Car Image
+        p1, p2 = carCoor
+        carImg = _data[p2.y:p1.y, p1.x:p2.x, :]
+        Create_Image(inputdata=carImg, outputFilename=carImageOutputFilePath)
+
         # scaledCarCoor => (x1, y1, x2, y2)
         pt1, pt2 = Scale_Coordinate(coor=carCoor, originalShape=data.shape)
         cv2.rectangle(img=image, pt1=pt1, pt2=pt2, color=CAR_COLOR, thickness=2, lineType=2)
@@ -258,14 +324,6 @@ def Create_Video(task: tuple[str, int, dict, set]) -> None:
 
         pt1, pt2 = Scale_Coordinate(coor=deltaCarPlateCoor, originalShape=data.shape)
         cv2.rectangle(img=image, pt1=pt1, pt2=pt2, color=CAR_PLATE_COLOR, thickness=2, lineType=2)
-
-        # Create a Full Image
-        Create_Image(inputdata=image, outputFilename=fullImageOutputFilePath)
-
-        # Create Full Car Image
-        p1, p2 = carCoor[0]['coor']
-        carImg = _data[p2.y:p1.y, p1.x:p2.x, :]
-        Create_Image(inputdata=carImg, outputFilename=carImageOutputFilePath)
 
         # Create Full Plate Image
         p1, p2 = deltaCarPlateCoor
@@ -286,7 +344,7 @@ def Create_Video(task: tuple[str, int, dict, set]) -> None:
 
 
 def Create_Video2(task: tuple[str, int, dict, set]) -> None:
-    camera, lostCarID, hasTheCarBrokenAnyRules, isTheCarPlateDetecedAnyTime, trackedCarInfo, carViolations = task
+    camera, lostCarID, stopLine, hasTheCarBrokenAnyRules, isTheCarPlateDetecedAnyTime, trackedCarInfo, carViolations = task
     if not hasTheCarBrokenAnyRules:
         # If not detected broked rules we need save only car image
         return

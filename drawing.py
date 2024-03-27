@@ -110,9 +110,12 @@ def main():
 
     folder = 'frames/10.42.7.72'
     files = [os.path.join(folder, file) for file in sorted(os.listdir(folder), key=lambda file: int(file.split('.')[0]))]
+    files = filter(lambda file: os.path.basename(file).split('.')[0] in ['314', '326', '372', '380'], files)
 
-    for file in files[330:400]:
-        index = int(file.split('/')[-1].split('.')[0])
+    # for file in files[300:330]:
+    for file in files:
+        index = int(os.path.basename(file).split('.')[0])
+        print(os.path.basename(file))
         data = np.load(file=file)
         data = cv2.resize(src=data, dsize=VIDEO_SHAPE)
         write_coor_on_cv2(index=index, data=data)
@@ -128,7 +131,7 @@ def main2():
     cars = read_file('car.json')
     plates = read_file('plate.json')
 
-    for file in files[330:342]:
+    for file in files[330:332]:
         index = 0
         curIndex = int(file.split('/')[-1].split('.')[0])
         data = np.load(file=file)
@@ -147,6 +150,29 @@ def main2():
             continue
 
 
+def main3():
+    cars = read_file('car.json')
+    plates = read_file('plate.json')
+
+    folder = 'frames/10.42.7.72'
+    files = [os.path.join(folder, file) for file in sorted(os.listdir(folder), key=lambda file: int(file.split('.')[0]))]
+    files = filter(lambda file: os.path.basename(file).split('.')[0] in ['314', '326', '372', '380'], files)
+
+    for file in files:
+        index = os.path.basename(file).split('.')[0]
+        for info in cars + plates:
+            if int(info['index']) == int(index):
+                coor = info['coors']
+                break
+
+        data = np.load(file)
+        # data = cv2.resize(src=data, dsize=VIDEO_SHAPE)
+        # cv2.rectangle(img=data, pt1=tuple([i // 2 for i in coor[0]]), pt2=tuple([i // 2 for i in coor[1]]), color=(255, 0, 0))
+        # cv2.imshow('Kai', data)
+        # if cv2.waitKey() & 0XFF == ord('c'): continue
+
+
 if __name__ == "__main__":
     # main()
-    main2()
+    # main2()
+    main3()
