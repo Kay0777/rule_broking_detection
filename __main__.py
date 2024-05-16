@@ -39,13 +39,13 @@ def Video_Creator(tasks: Queue) -> None:
 
         Create_Video(task=newTask)
         tasks.task_done()
-    print('# ________________________________________________________ #')
-    print('#       V I D E O   C R E A T O R   I S   C L O S E D      #')
-    print('# ________________________________________________________ #')
+    print("# ________________________________________________________ #")
+    print("#       V I D E O   C R E A T O R   I S   C L O S E D      #")
+    print("# ________________________________________________________ #")
 
 
 def Connect_To_Camera(camera: Camera) -> None:
-    print(f'Camera: {camera} is connecting...')
+    print(f"Camera: {camera} is connecting...")
     # Connection to the camera with opencv
     cap: cv2.VideoCapture = cv2.VideoCapture(camera.url)
     # If not connection with camera, all the camera tasks will be killed!
@@ -58,7 +58,7 @@ def Connect_To_Camera(camera: Camera) -> None:
         print(f"Error: Could not open camera {camera}.")
         return
 
-    print(f'Camera: {camera} connected !!!')
+    print(f"Camera: {camera} connected !!!")
     # Start the camera for other waiting threads and processes if the camera is connected.
     camera.run()
     # Start reading frame from the camera
@@ -73,21 +73,28 @@ def Connect_To_Camera(camera: Camera) -> None:
             camera.isAlive = False
             break
 
-        # Save each frame of the camera
-        camera.save(data=frame)
+        # # Save each frame of the camera
+        # camera.save(data=frame)
 
-        # Check camera block status
-        # If camera blocked and analyzes active frame, active frame will not update to next frame
-        if not camera.isBlocked:
-            # Create and Update Camera LAF Shared Memory Data
-            camera.update_last_active_frame_data(newLafData=frame)
-            # Block Camera for not update Laf data
-            camera.block()
-        # Update camera counter
-        camera.counter += 1
+        # # Check camera block status
+        # # If camera blocked and analyzes active frame, active frame will not update to next frame
+        # if not camera.isBlocked:
+        #     # Create and Update Camera LAF Shared Memory Data
+        #     camera.update_last_active_frame_data(newLafData=frame)
+        #     # Block Camera for not update Laf data
+        #     camera.block()
+        # # Update camera counter
+        # camera.counter += 1
+
+        h, w, _ = frame.shape
+        frame = cv2.resize(frame, (w // 2, h // 2))
+        cv2.imshow('Kai', frame)
+        if cv2.waitKey(1) & 0XFF == ord('q'):
+            break
 
     # Kill connection with camera
     cap.release()
+    cv2.destroyAllWindows()
 
 
 def Analyze_Laf_Data(
@@ -96,10 +103,10 @@ def Analyze_Laf_Data(
     trackers: Namespace,
     configs: Namespace,
     allObjectsModel: TensorModel,
-    trafficLightModel: TensorModel
+    trafficLightModel: TensorModel,
 ) -> None:
     # Wait until connection to the camera
-    print(f'The analysis task is waiting to connection to the camera: {camera}')
+    print(f"The analysis task is waiting to connection to the camera: {camera}")
     camera.wait()
 
     # If the camera is not connected, the process will be killed
@@ -107,14 +114,16 @@ def Analyze_Laf_Data(
         return
 
     # Start analyze the camera active frame
-    print(f'Start analyze the camera: {camera} active frame!')
-    print('#_________________________________________________________#')
+    print(f"Start analyze the camera: {camera} active frame!")
+    print("#_________________________________________________________#")
 
-    printt('* _________________________________________________________ *')
-    tracker: Tracker = getattr(trackers, f'{camera}')
-    linesConfigs: dict = getattr(configs, f'{camera}')
+    printt("* _________________________________________________________ *")
+    tracker: Tracker = getattr(trackers, f"{camera}")
+    linesConfigs: dict = getattr(configs, f"{camera}")
 
-    violationDetector: ViolationDetector = ViolationDetector(name=camera.ip, configs=linesConfigs)
+    violationDetector: ViolationDetector = ViolationDetector(
+        name=camera.ip, configs=linesConfigs
+    )
     camera.isDetectable = True
     while True:
         if not camera.isAlive:
@@ -127,13 +136,13 @@ def Analyze_Laf_Data(
             # The active frame will be analyzed and after analysis, the unblocked camera's last active frame status
             continue
 
-        printt('* _________________________________________________________ *')
+        printt("* _________________________________________________________ *")
         # ______________________________________________________________________________
         start = time.monotonic()
         # LAF is Last Active Frame
         # Getting camera last active frame data [lafData(np.ndarray), laFQueue(int)]
         lafData, laFQueue = camera.last_active_frame_data()
-        timeIt(camera=str(camera), title='Get LAF Time', startTime=start)
+        timeIt(camera=str(camera), title="Get LAF Time", startTime=start)
         # ______________________________________________________________________________
 
         # ______________________________________________________________________________
@@ -142,7 +151,7 @@ def Analyze_Laf_Data(
         chwLafData: np.ndarray = Laf_HWC_To_CHW(lafData=lafData)
         # Getting Input Tensor Data from converted CHW data
         inTenSorData: np.ndarray = CHW_Laf_To_TenSor(chwLafData=chwLafData)
-        timeIt(camera=str(camera), title='Convert LAF To Time', startTime=start)
+        timeIt(camera=str(camera), title="Convert LAF To Time", startTime=start)
         # ______________________________________________________________________________
 
         while not allObjectsModel.isAsyncInferQueueReady:
@@ -153,14 +162,15 @@ def Analyze_Laf_Data(
         start = time.monotonic()
         # Detecting Car Boxes from LAF
         tensors: np.ndarray = allObjectsModel.detect(inTenSorData=inTenSorData)
-        timeIt(camera=str(camera), title='Detect Tensors Time', startTime=start)
+        timeIt(camera=str(camera), title="Detect Tensors Time", startTime=start)
         # ______________________________________________________________________________
 
         # ______________________________________________________________________________
         start = time.monotonic()
         tlCoors, detectedCoorsOfCars, detectedCoorsOfCarPlates = Classification_Tensors(
-            tensors=tensors, lafDataShape=lafData.shape)
-        timeIt(camera=str(camera), title='Classificate Tensors Time', startTime=start)
+            tensors=tensors, lafDataShape=lafData.shape
+        )
+        timeIt(camera=str(camera), title="Classificate Tensors Time", startTime=start)
         # ______________________________________________________________________________
 
         # If Traffic Light Is Detected In The LAF
@@ -169,9 +179,13 @@ def Analyze_Laf_Data(
             # ______________________________________________________________________________
             start = time.monotonic()
             p1, p2 = tlCoors
-            trafficLightImage: Image.Image = Image.fromarray(lafData[p1.y:p2.y, p1.x:p2.x])
-            transformedTLImage: np.ndarray = Transform_Traffic_Light_Image(trafficLightImage=trafficLightImage)
-            timeIt(camera=str(camera), title='Transform TL Time', startTime=start)
+            trafficLightImage: Image.Image = Image.fromarray(
+                lafData[p1.y: p2.y, p1.x: p2.x]
+            )
+            transformedTLImage: np.ndarray = Transform_Traffic_Light_Image(
+                trafficLightImage=trafficLightImage
+            )
+            timeIt(camera=str(camera), title="Transform TL Time", startTime=start)
             # ______________________________________________________________________________
 
             # ______________________________________________________________________________
@@ -183,15 +197,17 @@ def Analyze_Laf_Data(
             # ________________________________________________
             start = time.monotonic()
             # Detect Traffic Light From LAF Data
-            trafficLight: np.ndarray = trafficLightModel.detect(inTenSorData=transformedTLImage)
-            timeIt(camera=str(camera), title='Detect TL Color', startTime=start)
+            trafficLight: np.ndarray = trafficLightModel.detect(
+                inTenSorData=transformedTLImage
+            )
+            timeIt(camera=str(camera), title="Detect TL Color", startTime=start)
             # ________________________________________________
 
             # _________________________________________________
             start = time.monotonic()
             # Detect Color Of The Traffic Light
             tlColor: str = Traffic_Light_Color(trafficLight=trafficLight)
-            timeIt(camera=str(camera), title='Get TL Color Time', startTime=start)
+            timeIt(camera=str(camera), title="Get TL Color Time", startTime=start)
             # _________________________________________________
 
             # _________________________________________________
@@ -199,8 +215,9 @@ def Analyze_Laf_Data(
             # Update Crossroad Traffic Light Info [Color and Coordinate]
             tracker.Update_Traffic_Light_Info(
                 coors=tlCoors,
-                color=tlColor,)
-            timeIt(camera=str(camera), title='Updata TL Color Time', startTime=start)
+                color=tlColor,
+            )
+            timeIt(camera=str(camera), title="Updata TL Color Time", startTime=start)
 
             isTlColorUpdated = True
             # _________________________________________________
@@ -214,37 +231,43 @@ def Analyze_Laf_Data(
             # Update Detected Cars Coordinates and MetaData
             tracker.Update_Cars(
                 detectedCoorsOfCars=detectedCoorsOfCars,
-                detectedCoorsOfCarPlates=detectedCoorsOfCarPlates)
-            timeIt(camera=str(camera), title='Update Detected Cars Time', startTime=start)
+                detectedCoorsOfCarPlates=detectedCoorsOfCarPlates,
+            )
+            timeIt(
+                camera=str(camera), title="Update Detected Cars Time", startTime=start
+            )
             # _________________________________________________
 
             # _________________________________________________
             start = time.monotonic()
             # Update Violations Detected Cars
             mustTasks = violationDetector.Update_Trackers(
-                laFQueue=laFQueue,
-                cars=tracker.cars)
-            timeIt(camera=str(camera), title='Update Violations Time', startTime=start)
+                laFQueue=laFQueue, cars=tracker.cars
+            )
+            timeIt(camera=str(camera), title="Update Violations Time", startTime=start)
 
             start = time.monotonic()
             # Adding task to Task Queue
             for mustTask in mustTasks:
                 tasks.put(mustTask)
-            timeIt(camera=str(camera), title='Add Must Task To Queue Time', startTime=start)
+            timeIt(
+                camera=str(camera), title="Add Must Task To Queue Time", startTime=start
+            )
             # _________________________________________________
 
             # _________________________________________________
             start = time.monotonic()
             # Checking Violations Detected Cars
-            tlColor: str = tracker.traffic_light.color if isTlColorUpdated else 'None'
+            tlColor: str = tracker.traffic_light.color if isTlColorUpdated else "None"
             violationDetector.Check_Violations(
-                laFQueue=laFQueue,
-                tlColor=tlColor,
-                cars=tracker.cars)
-            timeIt(camera=str(camera), title='Checking Violations Time', startTime=start)
+                laFQueue=laFQueue, tlColor=tlColor, cars=tracker.cars
+            )
+            timeIt(
+                camera=str(camera), title="Checking Violations Time", startTime=start
+            )
             # _________________________________________________
             # ______________________________________________________________________________
-        printt('* _________________________________________________________ *')
+        printt("* _________________________________________________________ *")
 
         # Update Camera Blocking Status For unLock To Update Shared Memory Data
         camera.unblock()
@@ -279,86 +302,98 @@ def Analyze_Laf_Data(
 def main():
     from warnings import filterwarnings
     from config import CONF
-    filterwarnings('ignore')
+
+    filterwarnings("ignore")
 
     with Manager() as manager:
         trackers: Namespace = manager.Namespace()
         configs: Namespace = manager.Namespace()
         cameras: ListProxy[Camera] = manager.list()
 
-        for ip in CONF['ips']:
-            print('#_________________________________________________________#')
-            print('        LOADING CAMERA CONFIG FILE OR DRAWING LINES        ')
+        for ip in CONF["ips"]:
+            print("#_________________________________________________________#")
+            print("        LOADING CAMERA CONFIG FILE OR DRAWING LINES        ")
             line: Line = Line(camera=ip)
             rtsp_url: str = Camera.rtsp_url(
-                username=CONF["username"],
-                password=CONF["password"],
-                ip=ip)
+                username=CONF["username"], password=CONF["password"], ip=ip
+            )
 
             isCameraConnected, frameShape = line.load(url=rtsp_url)
             if not isCameraConnected:
-                print(f'Not connection with camera: {ip}!')
+                print(f"Not connection with camera: {ip}!")
                 continue
 
-            setattr(trackers, ip, Tracker(name=ip, maxDisappeared=MAX_DISAPPEARED, maxDistance=MAX_DISTANCE))
+            setattr(
+                trackers,
+                ip,
+                Tracker(
+                    name=ip, maxDisappeared=MAX_DISAPPEARED, maxDistance=MAX_DISTANCE
+                ),
+            )
             setattr(configs, ip, line.config)
             cameras.append(
                 Camera(
                     manager=manager,
                     ip=ip,
                     username=CONF["username"],
-                    password=CONF["password"]))
+                    password=CONF["password"],
+                )
+            )
 
         if not cameras:
-            print('*************************************************************')
-            print('* Not Found Camera Or Not Connection Any Camera To Analysis *')
-            print('*************************************************************')
+            print("*************************************************************")
+            print("* Not Found Camera Or Not Connection Any Camera To Analysis *")
+            print("*************************************************************")
             return
 
         start = time.monotonic()
-        print('Object and Traffic Light detector models are loading....')
+        print("Object and Traffic Light detector models are loading....")
         allObjectsModel: TensorModel = TensorModel(modelType=ModelType.ALL)
         trafficLightModel: TensorModel = TensorModel(modelType=ModelType.TRAFFIC_LIGHT)
-        print('Object and Traffic Light detector models are loaded!')
-        timeIt(camera=CONF['ips'], title='Loading tensor Models Time', startTime=start)
-        print('#_________________________________________________________#')
+        print("Object and Traffic Light detector models are loaded!")
+        timeIt(camera=CONF["ips"], title="Loading tensor Models Time", startTime=start)
+        print("#_________________________________________________________#")
 
         tasks: Queue = manager.Queue()  # type: ignore
         with ProcessPoolExecutor(max_workers=2) as connectionPool, \
                 ThreadPoolExecutor(max_workers=12) as analyzingPool, \
-            ProcessPoolExecutor(max_workers=2) as videoCreatorPool:
-
+                ProcessPoolExecutor(max_workers=2) as videoCreatorPool:
             connectionFutures = []
             analysisFutures = []
             videoCreatorFutures = []
-            
+
             for camera in cameras:
                 # Submit "Connection To Camera" tasks in The Connection Pool
-                connectionTask = connectionPool.submit(
-                    Connect_To_Camera, camera)
+                connectionTask = connectionPool.submit(Connect_To_Camera, camera)
                 connectionTask.add_done_callback(fn=Handle_Exception)
                 connectionFutures.append(connectionTask)
 
-                # Submit "Analysis Laf Data" tasks in The Analysis Pool
-                analysisTask = analyzingPool.submit(
-                    Analyze_Laf_Data, camera, tasks, trackers, configs, allObjectsModel, trafficLightModel)
-                analysisTask.add_done_callback(fn=Handle_Exception)
-                analysisFutures.append(analysisTask)
-            
-            # Submit "Video Creator" tasks in The Video Creator Pool
-            videoCreatorFuture = videoCreatorPool.submit(
-                Video_Creator, tasks)
-            videoCreatorFuture.add_done_callback(fn=Handle_Exception)
-            videoCreatorFutures.append(videoCreatorFuture)
+            #     # Submit "Analysis Laf Data" tasks in The Analysis Pool
+            #     analysisTask = analyzingPool.submit(
+            #         Analyze_Laf_Data,
+            #         camera,
+            #         tasks,
+            #         trackers,
+            #         configs,
+            #         allObjectsModel,
+            #         trafficLightModel,
+            #     )
+            #     analysisTask.add_done_callback(fn=Handle_Exception)
+            #     analysisFutures.append(analysisTask)
+
+            # # Submit "Video Creator" tasks in The Video Creator Pool
+            # videoCreatorFuture = videoCreatorPool.submit(Video_Creator, tasks)
+            # videoCreatorFuture.add_done_callback(fn=Handle_Exception)
+            # videoCreatorFutures.append(videoCreatorFuture)
 
             # Wait for all futures to complete.
             wait(connectionFutures + analysisFutures + videoCreatorFutures)
 
-        print('Main Thread is terminated!')
+        print("Main Thread is terminated!")
         # # Unlinking (remove) shared memory view from Memory
         for camera in cameras:
             camera.cleaning_shared_memories()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -25,11 +25,15 @@ from kai.const import (
 
 # Done Optimized
 def Handle_Exception(future: Future) -> None:
-    exception: Exception = future.exception()
-    if exception:
-        print('# $ ______________________________________________________ $ #')
-        print(f"Exception: {exception}")
-        print('# $ ______________________________________________________ $ #')
+    try:
+        future.result()
+    except Exception as e:
+        print(e)
+        exception: Exception = future.exception()
+        if exception:
+            print('# $ ______________________________________________________ $ #')
+            print(f"Exception: {exception}")
+            print('# $ ______________________________________________________ $ #')
 
 
 # Done Optimized

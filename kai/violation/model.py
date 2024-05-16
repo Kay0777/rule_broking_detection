@@ -74,7 +74,7 @@ class ViolationDetector(ViolationDetectorBase, metaclass=ViolationDetectorMetaCl
         lostCarIDs: set[int] = {
             carID for carID, metaData in self.trackedCars.items()
             if metaData['missing_frames'] > COUNT_OF_MISSING_FRAMES}
-        
+
         tasks: list[tuple[str, int, dict, set]] = []
         for lostCarID in lostCarIDs:
             hasTheCarBrokenAnyRules = any(lostCarID in self.violations[violation] for violation in self.violations)
@@ -123,7 +123,7 @@ class ViolationDetector(ViolationDetectorBase, metaclass=ViolationDetectorMetaCl
             if 'red_light' not in carViolations:
                 tlViolation, violationFrameID = self.__traffick_light_violation(car=car, tlColor=tlColor, laFQueue=laFQueue)
                 if tlViolation is not None:
-                    self.__recoding_violation(car=car, vtype=tlViolation, laFQueue=violationFrameID)
+                    self.__recoding_violation(car=car, vtype=tlViolation, violationFrameID=violationFrameID)
 
             if '1.1_line' not in carViolations and self.__1_1_line_violation(car=car):
                 self.__recoding_violation(car=car, vtype='1.1_line', violationFrameID=laFQueue)
